@@ -50,6 +50,7 @@ struct ContentView: View {
     @State private var is10thStepMode = false
     @State private var isHovering10thStep = false
     @State private var currentQuestionIndex = 0
+    @State private var tenthStepAnswers: [String] = Array(repeating: "", count: 10) // Add array to store answers
     
     private let tenthStepQuestions = [
         "1) Where was I resentful?",
@@ -446,15 +447,26 @@ struct ContentView: View {
                         // Add keyboard event monitoring
                         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                             if is10thStepMode && event.keyCode == 36 { // 36 is the keyCode for Return
+                                // Save current answer before moving to next question
+                                if let questionRange = text.range(of: tenthStepQuestions[currentQuestionIndex]) {
+                                    let answerStart = text.index(questionRange.upperBound, offsetBy: 1)
+                                    let answer = String(text[answerStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    tenthStepAnswers[currentQuestionIndex] = answer
+                                }
+                                
                                 // Move to next question when Enter is pressed
                                 if currentQuestionIndex < tenthStepQuestions.count - 1 {
                                     currentQuestionIndex += 1
                                     let currentQuestion = tenthStepQuestions[currentQuestionIndex]
                                     text = "\n\n" + currentQuestion + "\n\n"
                                 } else {
-                                    // Last question completed
+                                    // Last question completed - show all questions and answers
+                                    var fullText = ""
+                                    for (index, question) in tenthStepQuestions.enumerated() {
+                                        fullText += "\n\n" + question + "\n\n" + tenthStepAnswers[index]
+                                    }
+                                    text = fullText
                                     is10thStepMode = false
-                                    text = "\n\n"
                                 }
                                 return nil // Consume the event
                             }
