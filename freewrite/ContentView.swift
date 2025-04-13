@@ -46,6 +46,24 @@ struct ContentView: View {
     @State private var entries: [HumanEntry] = []
     @State private var text: String = ""  // Remove initial welcome text since we'll handle it in createNewEntry
     
+    // Add 10th step state variables
+    @State private var is10thStepMode = false
+    @State private var isHovering10thStep = false
+    @State private var currentQuestionIndex = 0
+    
+    private let tenthStepQuestions = [
+        "1) Where was I resentful?",
+        "2) Where was I selfish?",
+        "3) Where was I dishonest?",
+        "4) Where was I afraid (fearful)?",
+        "5) Do I owe an apology?",
+        "6) Have we kept something to ourselves which should be discussed with another person at once?",
+        "7) Were we kind and loving toward all?",
+        "8) What could we have done better?",
+        "9) Were we thinking about ourselves most of the time, or were we thinking about what we could do for others?",
+        "10) Ask God for forgiveness and ask what corrective measures should be taken."
+    ]
+    
     @State private var isFullscreen = false
     @State private var selectedFont: String = "Lato-Regular"
     @State private var currentRandomFont: String = ""
@@ -375,11 +393,21 @@ struct ContentView: View {
                 TextEditor(text: Binding(
                     get: { text },
                     set: { newValue in
-                        // Ensure the text always starts with two newlines
-                        if !newValue.hasPrefix("\n\n") {
-                            text = "\n\n" + newValue.trimmingCharacters(in: .newlines)
+                        if is10thStepMode {
+                            // In 10th step mode, only allow editing after the current question
+                            let currentQuestion = tenthStepQuestions[currentQuestionIndex]
+                            if let questionRange = newValue.range(of: currentQuestion) {
+                                let questionEnd = questionRange.upperBound
+                                let editableText = String(newValue[questionEnd...])
+                                text = currentQuestion + editableText
+                            }
                         } else {
-                            text = newValue
+                            // Regular freewriting mode
+                            if !newValue.hasPrefix("\n\n") {
+                                text = "\n\n" + newValue.trimmingCharacters(in: .newlines)
+                            } else {
+                                text = newValue
+                            }
                         }
                     }
                 ))
@@ -405,17 +433,34 @@ struct ContentView: View {
                     }
                     .overlay(
                         ZStack(alignment: .topLeading) {
-                            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !is10thStepMode {
                                 Text(placeholderText)
                                     .font(.custom(selectedFont, size: fontSize))
                                     .foregroundColor(.gray.opacity(0.5))
-                                    // .padding(.top, 8)
-                                    // .padding(.leading, 8)
                                     .allowsHitTesting(false)
                                     .offset(x: 5, y: placeholderOffset)
                             }
                         }, alignment: .topLeading
                     )
+                    .onAppear {
+                        // Add keyboard event monitoring
+                        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                            if is10thStepMode && event.keyCode == 36 { // 36 is the keyCode for Return
+                                // Move to next question when Enter is pressed
+                                if currentQuestionIndex < tenthStepQuestions.count - 1 {
+                                    currentQuestionIndex += 1
+                                    let currentQuestion = tenthStepQuestions[currentQuestionIndex]
+                                    text = "\n\n" + currentQuestion + "\n\n"
+                                } else {
+                                    // Last question completed
+                                    is10thStepMode = false
+                                    text = "\n\n"
+                                }
+                                return nil // Consume the event
+                            }
+                            return event
+                        }
+                    }
                 
                 VStack {
                     Spacer()
@@ -659,6 +704,33 @@ struct ContentView: View {
                                     .background(Color(NSColor.controlBackgroundColor))
                                     .cornerRadius(8)
                                     .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
+                                }
+                            }
+                            
+                            Text("•")
+                                .foregroundColor(.gray)
+                            
+                            Button("10th") {
+                                if !is10thStepMode {
+                                    // Enter 10th step mode
+                                    is10thStepMode = true
+                                    currentQuestionIndex = 0
+                                    text = "\n\n" + tenthStepQuestions[0] + "\n\n"
+                                } else {
+                                    // Exit 10th step mode
+                                    is10thStepMode = false
+                                    text = "\n\n"
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(isHovering10thStep ? .black : .gray)
+                            .onHover { hovering in
+                                isHovering10thStep = hovering
+                                isHoveringBottomNav = hovering
+                                if hovering {
+                                    NSCursor.pointingHand.push()
+                                } else {
+                                    NSCursor.pop()
                                 }
                             }
                             
